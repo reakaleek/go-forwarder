@@ -37,6 +37,8 @@ func forwardRequest(target string, r *http.Request, ch chan *http.Response) {
 		ch <- nil
 		return
 	}
+	// Append the original request's path to the target URL
+	url.Path = r.URL.Path
 
 	// Create a new request with the same method and URL
 	req, err := http.NewRequest(r.Method, url.String(), bytes.NewBuffer(bodyBytes)) // Use the copied body here
