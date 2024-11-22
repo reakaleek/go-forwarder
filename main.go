@@ -26,25 +26,22 @@ func handler(targets []string, w http.ResponseWriter, r *http.Request) {
 
 func forwardRequest(target string, r *http.Request, ch chan *http.Response) {
 	// Create a copy of the request body
-	var bodyBytes []byte
-	if r.Body != nil {
-		bodyBytes, _ = io.ReadAll(r.Body)
-	}
+	bodyBytes, _ := io.ReadAll(r.Body)
 	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	// Parse the target URL
-	url, err := url.Parse(target)
+	u, err := url.Parse(target)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing target URL: %v\n", err)
 		ch <- nil
 		return
 	}
 	// Append the original request's path to the target URL
-	url.Path = r.URL.Path
-	url.RawQuery = r.URL.RawQuery // Include the query string
+	u.Path = r.URL.Path
+	u.RawQuery = r.URL.RawQuery // Include the query string
 
 	// Create a new request with the same method and URL
-	req, err := http.NewRequest(r.Method, url.String(), bytes.NewBuffer(bodyBytes)) // Use the copied body here
+	req, err := http.NewRequest(r.Method, u.String(), bytes.NewBuffer(bodyBytes)) // Use the copied body here
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating new request: %v\n", err)
 		ch <- nil
