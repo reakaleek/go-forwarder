@@ -1,22 +1,39 @@
+#
+# Releaser workflow setup
+# https://goreleaser.com/ci/actions/
+#
 name: release
 
+# run only on tags
 on:
   push:
     tags:
-      - 'v*' # Push events to matching v*, i.e. v1.0, v2.0.0
+      - 'v*'
+
+permissions:
+  contents: write # needed to write releases
+  id-token: write # needed for keyless signing
+  packages: write # needed for ghcr access
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
+        with:
+          fetch-depth: 0 # this is important, otherwise it won't checkout the full tree (i.e. no previous tags)
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+          cache: true
+      - uses: sigstore/cosign-installer@v3.7.0         # installs cosign
+      - uses: anchore/sbom-action/download-syft@v0.17.6 # installs syft
+      - uses: docker/login-action@v3                   # login to ghcr
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: goreleaser/goreleaser-action@v6          # run goreleaser
         with:
           version: '~> v2'
           args: release --clean
