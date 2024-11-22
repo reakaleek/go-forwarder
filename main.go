@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 )
 
 func handler(targets []string, w http.ResponseWriter, r *http.Request) {
@@ -39,6 +41,7 @@ func forwardRequest(target string, r *http.Request, ch chan *http.Response) {
 	}
 	// Append the original request's path to the target URL
 	url.Path = r.URL.Path
+	url.RawQuery = r.URL.RawQuery // Include the query string
 
 	// Create a new request with the same method and URL
 	req, err := http.NewRequest(r.Method, url.String(), bytes.NewBuffer(bodyBytes)) // Use the copied body here
@@ -46,6 +49,17 @@ func forwardRequest(target string, r *http.Request, ch chan *http.Response) {
 		fmt.Fprintf(os.Stderr, "Error creating new request: %v\n", err)
 		ch <- nil
 		return
+	}
+
+	// Copy the Host header
+	req.Host = r.Host
+
+	// Copy the X-Forwarded-For header (if it exists) and append the client's IP
+	if clientIP, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		if prior, ok := r.Header["X-Forwarded-For"]; ok {
+			clientIP = strings.Join(prior, ", ") + ", " + clientIP
+		}
+		req.Header.Set("X-Forwarded-For", clientIP)
 	}
 
 	// Copy the headers from the original request
